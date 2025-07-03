@@ -1,0 +1,15 @@
+Upload a file to S3 Bucket → Trigger event
+
+AWS Lambda function is invoked automatically
+
+Lambda checks file type:
+
+Images → Move to /images/
+
+PDFs → Move to /documents/
+
+Excels → Move to /spreadsheets/
+
+Send a notification email via SNS about the file movement
+
+Files get neatly organized in respective folders
