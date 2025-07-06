@@ -1,123 +1,143 @@
-📂 Project Overview
-This project automatically organizes files uploaded to an S3 bucket into folders based on their file types (like images, documents, videos, etc.) using AWS Lambda. When a file is uploaded to the S3 bucket, a Lambda function is triggered to sort and move the file to the appropriate folder.
+# S3 Automatic File Organizer with AWS Lambda and SNS Notifications
 
-🚀 Features
-Automatically organizes files by type (e.g., .jpg, .pdf, .mp4).
+This project automatically organizes files uploaded to an Amazon S3 bucket based on their file type using AWS Lambda. It also sends an SNS email notification whenever a file is moved.
 
-Uses AWS Lambda for serverless execution.
+## ✅ Project Workflow
 
-Triggered by S3 ObjectCreated events.
+1. **File Upload to S3 Bucket**
+2. **S3 Event Trigger activates Lambda Function**
+3. **Lambda Function categorizes file into appropriate folder:**
+   - `images/` for image files (.jpg, .jpeg, .png)
+   - `documents/` for document files (.pdf)
+   - `spreadsheets/` for spreadsheet files (.xlsx, .xls, .csv)
+   - `others/` for all other file types
+4. **Lambda moves the file to the categorized folder.**
+5. **SNS Email Notification is sent confirming the file movement.**
 
-Supports custom file type mappings.
+---
 
-Logs execution details to CloudWatch.
+## 🛠️ AWS Services Used
+- Amazon S3
+- AWS Lambda
+- Amazon SNS
+- Amazon IAM
+- Amazon CloudWatch (for logs)
 
-🛠️ Architecture
-text
-Copy code
-User Uploads File to S3 Bucket
-           |
-           v
-   S3 Event Notification (ObjectCreated)
-           |
-           v
-      AWS Lambda Function
-           |
-           v
-Organizes File Based on Type (Moves to correct folder)
-           |
-           v
-        CloudWatch Logs
-📦 Project Structure
-text
-Copy code
-Automatic-File-Type-Organizer-in-S3
+---
+
+## 📂 Folder Structure in S3
+darwin-file-organizer-bucket/
 │
-├── lambda_function.py        # Lambda function handler
-├── requirements.txt          # Python dependencies (if any)
-└── README.md                 # Project documentation
-⚙️ Prerequisites
-AWS Account
+├── images/
+│ └── *.jpg, *.jpeg, *.png
+├── documents/
+│ └── *.pdf
+├── spreadsheets/
+│ └── *.xlsx, *.xls, *.csv
+└── others/
+└── other files
 
-IAM Role with:
+python
+Copy code
 
+---
+
+## 🧩 Key Components
+
+### ✅ Lambda Function Code:
+```python
+import boto3
+import os
+
+s3 = boto3.client('s3')
+sns = boto3.client('sns')
+
+SNS_TOPIC_ARN = 'arn:aws:sns:us-east-1:913524935515:S3FileNotification'
+
+def lambda_handler(event, context):
+    bucket_name = event['Records'][0]['s3']['bucket']['name']
+    file_key = event['Records'][0]['s3']['object']['key']
+
+    print(f"Copying {file_key} to organized folder...")
+
+    file_extension = file_key.split('.')[-1].lower()
+
+    if file_extension in ['jpg', 'jpeg', 'png']:
+        folder = 'images/'
+    elif file_extension in ['pdf']:
+        folder = 'documents/'
+    elif file_extension in ['xlsx', 'xls', 'csv']:
+        folder = 'spreadsheets/'
+    else:
+        folder = 'others/'
+
+    new_key = folder + os.path.basename(file_key)
+
+    try:
+        s3.copy_object(Bucket=bucket_name, CopySource={'Bucket': bucket_name, 'Key': file_key}, Key=new_key)
+        s3.delete_object(Bucket=bucket_name, Key=file_key)
+        message = f'File {file_key} moved to {new_key}'
+        print(message)
+        sns.publish(TopicArn=SNS_TOPIC_ARN, Message=message, Subject='S3 File Organizer Notification')
+    except Exception as e:
+        print(f"Error occurred: {str(e)}")
+
+    return {'statusCode': 200, 'body': 'File organized successfully.'}
+✅ Steps to Deploy
+1. Create an S3 Bucket
+Name: darwin-file-organizer-bucket
+
+2. Create an SNS Topic
+Name: S3FileNotification
+
+Subscribe your email to this topic.
+
+3. Create IAM Role with Permissions:
 AmazonS3FullAccess
+
+AmazonSNSFullAccess
 
 AWSLambdaBasicExecutionRole
 
-S3 Bucket
+4. Create the Lambda Function
+Runtime: Python 3.12
 
-🛠️ Setup Instructions
-1. Create an S3 Bucket
-Go to AWS S3 → Create a new bucket.
+Attach the above IAM role.
 
-2. Create a Lambda Function
-Go to AWS Lambda → Create function.
+5. Add Trigger to Lambda
+Trigger: S3
 
-Runtime: Python 3.x
+Bucket: darwin-file-organizer-bucket
 
-Assign an IAM role with S3 Full Access and CloudWatch Logs permissions.
+Event type: All object create events
 
-3. Add S3 Trigger to Lambda
-Configure the Lambda trigger for the ObjectCreated (All) event on your S3 bucket.
+6. Test the Workflow
+Upload files to your S3 bucket.
 
-4. Deploy the Code
-Upload your lambda_function.py to AWS Lambda.
+Check if files are automatically moved to correct folders.
 
-5. Test the Setup
-Upload files of different types to your S3 bucket.
+Check your email for SNS notifications.
 
-Check if the files are moved to their respective folders.
+✅ Architectural Diagram
 
-📂 File Type Mapping Example
-python
-Copy code
-file_type_mapping = {
-    'images': ['.jpg', '.jpeg', '.png', '.gif'],
-    'documents': ['.pdf', '.docx', '.txt'],
-    'videos': ['.mp4', '.mov', '.avi'],
-    # Add more types if needed
-}
-📈 Monitoring
-Go to CloudWatch > Log Groups > /aws/lambda/{Your Lambda Function Name}
+Diagram Summary:
 
-Check logs for:
+File upload to S3 → Triggers Lambda → Organizes file → Sends SNS email
 
-Trigger events
+✅ Conclusion
+This project helped automate file organization in S3 using Lambda and improved notification workflows using SNS.
 
-Success and error messages
+You can extend this project further by:
 
-File movements
+Adding support for other file types.
 
-🛡️ IAM Policy Example
-Make sure your Lambda role has the following permissions:
+Adding CloudWatch alarms for failures.
 
-json
-Copy code
-{
-  "Effect": "Allow",
-  "Action": [
-    "s3:GetObject",
-    "s3:PutObject",
-    "s3:DeleteObject"
-  ],
-  "Resource": "arn:aws:s3:::your-bucket-name/*"
-}
-📚 Useful AWS Resources
-AWS Lambda Documentation
+Using S3 bucket versioning.
 
-Amazon S3 Event Notifications
+🔗 Author
+Darwin | AWS Cloud Resource
 
-AWS CloudWatch Logs
-
-✨ Future Enhancements
-Add support for additional file types.
-
-Include file size-based categorization.
-
-Send email notifications on file movements.
-
-Build a dashboard for file organization statistics.
 
 🤝 Contribution
 Feel free to raise issues or contribute improvements to this project
